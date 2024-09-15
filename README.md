@@ -19,8 +19,8 @@ A simple, concurrent web crawler implemented in Go. This project demonstrates th
 
 1. Clone this repository:
    ```
-   git clone https://github.com/yourusername/concurrent-web-crawler.git
-   cd concurrent-web-crawler
+   git clone https://github.com/Fidel-wole/web-crawler.git
+   cd web-crawler
    ```
 
 2. Run the main program:
