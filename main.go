@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
+	"regexp"
+	"io"
 )
 
 type Fetcher interface {
@@ -49,53 +52,32 @@ func Crawl(url string, depth int, fetcher Fetcher) {
 	wg.Wait()
 }
 
-func main() {
-	Crawl("https://golang.org/", 4, fetcher)
-}
+type RealFetcher struct{}
 
-type fakeFetcher map[string]*fakeResult
-
-type fakeResult struct {
-	body string
-	urls []string
-}
-
-func (f fakeFetcher) Fetch(url string) (string, []string, error) {
-	if res, ok := f[url]; ok {
-		return res.body, res.urls, nil
+func (f RealFetcher) Fetch(url string) (string, []string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", nil, err
 	}
-	return "", nil, fmt.Errorf("not found: %s", url)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", nil, err
+	}
+
+	bodyString := string(body)
+	urls := extractUrls(bodyString)
+
+	return bodyString, urls, nil
 }
 
-var fetcher = fakeFetcher{
-	"https://golang.org/": &fakeResult{
-		"The Go Programming Language",
-		[]string{
-			"https://golang.org/pkg/",
-			"https://golang.org/cmd/",
-		},
-	},
-	"https://golang.org/pkg/": &fakeResult{
-		"Packages",
-		[]string{
-			"https://golang.org/",
-			"https://golang.org/cmd/",
-			"https://golang.org/pkg/fmt/",
-			"https://golang.org/pkg/os/",
-		},
-	},
-	"https://golang.org/pkg/fmt/": &fakeResult{
-		"Package fmt",
-		[]string{
-			"https://golang.org/",
-			"https://golang.org/pkg/",
-		},
-	},
-	"https://golang.org/pkg/os/": &fakeResult{
-		"Package os",
-		[]string{
-			"https://golang.org/",
-			"https://golang.org/pkg/",
-		},
-	},
+func extractUrls(body string) []string {
+	urlRegex := regexp.MustCompile(`https?://[^\s"']+`)
+	return urlRegex.FindAllString(body, -1)
+}
+
+func main() {
+	realFetcher := RealFetcher{}
+	Crawl("https://golang.org/", 2, realFetcher)
 }
